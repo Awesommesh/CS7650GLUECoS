@@ -2,7 +2,10 @@ import random
 import pandas as pd
 import nltk
 import json
+import os
 nltk.download('wordnet')
+from nltk.corpus import wordnet
+
 
 # Load the data from train
 def read_examples_from_file(data_dir, mode):
@@ -23,7 +26,7 @@ def read_examples_from_file(data_dir, mode):
                     examples[i]['present'] = True
     return examples
 
-train_data = read_examples_from_file('/Users/aojameru/GLUECoS/Data/Processed_Data/NER_EN_HI/Romanized', 'train')
+train_data = read_examples_from_file('Data/Processed_Data/NER_EN_HI', 'train')
 
 # Define a function to perform data augmentation by randomly replacing some words with their synonyms
 def augment_data(data, num_replacements=0.1):
@@ -60,7 +63,7 @@ augmented_train_data, words_replaced = augment_data(train_data)
 merged_data = train_data + augmented_train_data
 
 # Save the merged data in the same format as the original data
-augmented_data_path = '/Users/aojameru/GLUECoS/Data/Processed_Data/NER_EN_HI/Romanized/train_augmented.txt'
+augmented_data_path = 'Data/Processed_Data/NER_EN_HI/train_augmented.txt'
 with open(augmented_data_path, 'w', encoding='utf-8') as f:
     for sentence in merged_data:
         words = sentence['words']
