@@ -36,6 +36,7 @@ from transformers import (
     AutoTokenizer,
     HfArgumentParser,
     MBartTokenizer,
+    MBartTokenizerFast,
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
     default_data_collator,
@@ -395,7 +396,7 @@ def main():
     )
 
     # Set decoder_start_token_id
-    if model.config.decoder_start_token_id is None and isinstance(tokenizer, MBartTokenizer):
+    if model.config.decoder_start_token_id is None and (isinstance(tokenizer, MBartTokenizer) or isinstance(tokenizer, MBartTokenizerFast)):
         model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.target_id]
     if model.config.decoder_start_token_id is None:
         raise ValueError("Make sure that `config.decoder_start_token_id` is correctly defined")
