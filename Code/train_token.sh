@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation. Licensed under the MIT license.
 
 REPO=$PWD
-TASK=${1:-POS_EN_ES}
+TASK=${1:-NER_EN_HI}
 MODEL=${2:-bert-base-multilingual-cased}
 MODEL_TYPE=${3:-bert}
 DATA_DIR=${4:-"$REPO/Data/Processed_Data"}
@@ -12,10 +12,7 @@ BATCH_SIZE=16
 MAX_SEQ=256
 
 dir=`basename "$TASK"`
-if [ $dir == "Devanagari" ] || [ $dir == "Romanized" ]; then
-  OUT=`dirname "$TASK"`
-else
-  OUT=$TASK
+OUT=$(basename $(dirname "$TASK"))
 fi
 
 python $PWD/Code/BertToken.py \
