@@ -23,4 +23,5 @@ python $PWD/Code/BertToken.py \
   --num_train_epochs $EPOCH \
   --train_batch_size $BATCH_SIZE \
   --max_seq_length $MAX_SEQ \
+  --num_layers 1 \
   --save_steps -1
