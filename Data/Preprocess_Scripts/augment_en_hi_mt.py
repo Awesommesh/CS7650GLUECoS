@@ -30,7 +30,7 @@ def augment_sentences(sentences):
 
     return augmented_sentences
 
-train_file = "../Processed_Data/MT_EN_HI/train.txt"
+train_file = "Data/Processed_Data/MT_EN_HI/train.txt"
 
 # read input sentences from train.txt file
 sentences = read_train_file(train_file)
@@ -40,5 +40,6 @@ augmented_sentences = augment_sentences(sentences)
 print(len(augmented_sentences), "new sentences added")
 # write augmented sentences to train.txt file
 with open(train_file, "a") as f:
+    f.write("\n")
     for sentence in augmented_sentences:
         f.write(sentence + "\n")
