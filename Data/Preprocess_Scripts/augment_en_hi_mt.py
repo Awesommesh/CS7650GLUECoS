@@ -15,14 +15,14 @@ def read_train_file(train_file):
 
 def augment_sentences(sentences, augmentation_method):
     # download word2vec
-    if augmentation_method == "word2vec"
+    if augmentation_method == "word2vec":
         DownloadUtil.download_word2vec(dest_dir='.')
 
     # define augmenter
     aug_syn = naw.SynonymAug(aug_src='wordnet', model_path=".", name='Synonym_Aug', aug_min=1, aug_max=3, aug_p=0.3, lang='eng',
                      stopwords=None, tokenizer=None, reverse_tokenizer=None, stopwords_regex=None, force_reload=False,
                      verbose=0)
-    aug_w2v = naw.WordEmbsAug(model_type='word2vec', model=model, action="substitute", aug_min=1, aug_max=3, aug_p=0.3, top_k=10)
+    aug_w2v = naw.WordEmbsAug(model_type='word2vec', model_path='GoogleNews-vectors-negative300.bin', action="substitute", aug_min=1, aug_max=3, aug_p=0.3, top_k=10)
     # augment sentences
     augmented_sentences = []
     for sentence_x, sentence_y in sentences:
@@ -32,7 +32,7 @@ def augment_sentences(sentences, augmentation_method):
             augmented_x = None
             if augmentation_method == 'synonym':
                 augmented_x = aug_syn.augment(sentence_x)
-            elif augmentation_method == "word_emb":
+            elif augmentation_method == "word2vec":
                 augmented_x = aug_w2v.augment(sentence_x)
             else:
                 print("Got unexpected augmentation method!")
