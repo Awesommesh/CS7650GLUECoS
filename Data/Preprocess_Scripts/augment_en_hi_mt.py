@@ -22,7 +22,8 @@ def augment_sentences(sentences, augmentation_method):
     aug_syn = naw.SynonymAug(aug_src='wordnet', model_path=".", name='Synonym_Aug', aug_min=1, aug_max=3, aug_p=0.3, lang='eng',
                      stopwords=None, tokenizer=None, reverse_tokenizer=None, stopwords_regex=None, force_reload=False,
                      verbose=0)
-    aug_w2v = naw.WordEmbsAug(model_type='word2vec', model_path='GoogleNews-vectors-negative300.bin', action="substitute", aug_min=1, aug_max=3, aug_p=0.3, top_k=10)
+    if augmentation_method == "word2vec":
+        aug_w2v = naw.WordEmbsAug(model_type='word2vec', model_path='GoogleNews-vectors-negative300.bin', action="substitute", aug_min=1, aug_max=3, aug_p=0.3, top_k=10)
     # augment sentences
     augmented_sentences = []
     for sentence_x, sentence_y in sentences:
