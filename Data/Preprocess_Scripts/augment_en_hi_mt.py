@@ -48,11 +48,10 @@ if __name__ == '__main__':
 
     # read input sentences from train.txt file
     sentences = read_train_file(train_file)
-    print(len(augmented_sentences), "new sentences added")
 
     # perform appropriate augmentation on input sentences
     all_augmented_sentences = augment_sentences(sentences, args.augmentation_method)
-
+    print(len(all_augmented_sentences), "new sentences added")
     # write augmented sentences to train.txt file
     with open(train_file, "a") as f:
         f.write("\n")
