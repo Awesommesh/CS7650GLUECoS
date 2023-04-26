@@ -2,6 +2,7 @@ import nlpaug.augmenter.word as naw
 import nlpaug.flow as naf
 import random
 import gensim.downloader as api
+import argparse
 
 def read_train_file(train_file):
     sentences = []
@@ -29,7 +30,7 @@ def augment_sentences(sentences, augmentation_method):
             if augmentation_method == 'synonym':
                 augmented_x = aug_syn.augment(sentence_x)
             elif augmentation_method == "word_emb":
-                augmented_x = aug_w2v.augment(sentence)
+                augmented_x = aug_w2v.augment(sentence_x)
             augmented_x = random.choice(augmented_x)
             if augmented_x == sentence_x:
                 continue
@@ -41,7 +42,7 @@ def augment_sentences(sentences, augmentation_method):
 if __name__ == '__main__':
     # parse input arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('augmentation_method', help='Augmentation method to use (synonym or word_emb)')
+    parser.add_argument('--augmentation-method', type=str, choices=['synonym', 'word2vec'], default='synonym', help='type of augmentation method to use')
     args = parser.parse_args()
     train_file = "Data/Processed_Data/MT_EN_HI/train.txt"
 
