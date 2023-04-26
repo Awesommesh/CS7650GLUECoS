@@ -8,7 +8,6 @@ def read_train_file(train_file):
         for line in f:
             sentence_x = line.strip().split("\t")[0]
             sentence_y = line.strip().split("\t")[1]
-            print(sentence_x, sentence_y)
             sentences.append((sentence_x, sentence_y))
     return sentences
 
@@ -25,6 +24,7 @@ def augment_sentences(sentences):
         num_aug = random.randint(1, 2)
         for _ in range(num_aug):
             augmented_x = augmenter.augment(sentence_x)
+            augmented_x = random.choice(augmented_x)
             augmented_sentence = f"{augmented_x}\t{sentence_y}"
             augmented_sentences.append(augmented_sentence)
 
@@ -37,7 +37,7 @@ sentences = read_train_file(train_file)
 
 # perform synonym augmentation on input sentences
 augmented_sentences = augment_sentences(sentences)
-print(len(augmented_sentences))
+print(len(augmented_sentences), "new sentences added")
 # write augmented sentences to train.txt file
 with open(train_file, "a") as f:
     for sentence in augmented_sentences:
