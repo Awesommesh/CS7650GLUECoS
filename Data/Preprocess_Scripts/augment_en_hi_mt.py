@@ -1,8 +1,8 @@
 import nlpaug.augmenter.word as naw
 import nlpaug.flow as naf
 import random
-import gensim.downloader as api
 import argparse
+from nlpaug.util.file.download import DownloadUtil
 
 def read_train_file(train_file):
     sentences = []
@@ -14,9 +14,12 @@ def read_train_file(train_file):
     return sentences
 
 def augment_sentences(sentences, augmentation_method):
-    model = api.load('word2vec-google-news-300')
+    # download word2vec
+    if augmentation_method == "word2vec"
+        DownloadUtil.download_word2vec(dest_dir='.')
+
     # define augmenter
-    aug_syn = naw.SynonymAug(aug_src='wordnet', model_path=None, name='Synonym_Aug', aug_min=1, aug_max=3, aug_p=0.3, lang='eng',
+    aug_syn = naw.SynonymAug(aug_src='wordnet', model_path=".", name='Synonym_Aug', aug_min=1, aug_max=3, aug_p=0.3, lang='eng',
                      stopwords=None, tokenizer=None, reverse_tokenizer=None, stopwords_regex=None, force_reload=False,
                      verbose=0)
     aug_w2v = naw.WordEmbsAug(model_type='word2vec', model=model, action="substitute", aug_min=1, aug_max=3, aug_p=0.3, top_k=10)
@@ -31,6 +34,9 @@ def augment_sentences(sentences, augmentation_method):
                 augmented_x = aug_syn.augment(sentence_x)
             elif augmentation_method == "word_emb":
                 augmented_x = aug_w2v.augment(sentence_x)
+            else:
+                print("Got unexpected augmentation method!")
+                return None
             augmented_x = random.choice(augmented_x)
             if augmented_x == sentence_x:
                 continue
