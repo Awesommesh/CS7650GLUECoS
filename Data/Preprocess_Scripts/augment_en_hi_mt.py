@@ -15,10 +15,10 @@ def read_train_file(train_file):
 def augment_sentences(sentences, augmentation_method):
     model = api.load('word2vec-google-news-300')
     # define augmenter
-    aug_syn = naw.SynonymAug(aug_src='wordnet', model_path=None, name='Synonym_Aug', aug_min=1, aug_max=3, aug_p=0.1, lang='eng',
+    aug_syn = naw.SynonymAug(aug_src='wordnet', model_path=None, name='Synonym_Aug', aug_min=1, aug_max=3, aug_p=0.3, lang='eng',
                      stopwords=None, tokenizer=None, reverse_tokenizer=None, stopwords_regex=None, force_reload=False,
                      verbose=0)
-    aug_w2v = naw.WordEmbsAug(model_type='word2vec', model=model, action="substitute", aug_min=1, aug_max=3, aug_p=0.1, top_k=10)
+    aug_w2v = naw.WordEmbsAug(model_type='word2vec', model=model, action="substitute", aug_min=1, aug_max=3, aug_p=0.3, top_k=10)
     # augment sentences
     augmented_sentences = []
     for sentence_x, sentence_y in sentences:
@@ -31,6 +31,8 @@ def augment_sentences(sentences, augmentation_method):
             elif augmentation_method == "word_emb":
                 augmented_x = aug_w2v.augment(sentence)
             augmented_x = random.choice(augmented_x)
+            if augmented_x == sentence_x:
+                continue
             augmented_sentence = f"{augmented_x}\t{sentence_y}"
             augmented_sentences.append(augmented_sentence)
 
