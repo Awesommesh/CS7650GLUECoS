@@ -28,7 +28,7 @@ def augment_sentences(sentences, augmentation_method):
     augmented_sentences = []
     for sentence_x, sentence_y in sentences:
         # generate 1-2 augmented sentences
-        num_aug = random.randint(1, 2)
+        num_aug = random.randint(0, 1)
         for _ in range(num_aug):
             augmented_x = None
             if augmentation_method == 'synonym':
