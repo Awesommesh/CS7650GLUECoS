@@ -6,18 +6,46 @@ import os
 import random
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, RandomSampler, SequentialSampler, Dataset
 from tqdm import tqdm, trange
-from transformers import (
-    BertForTokenClassification, BertTokenizer, XLMForTokenClassification, XLMTokenizer,
-    XLMRobertaForTokenClassification, XLMRobertaTokenizer, AdamW, get_linear_schedule_with_warmup
-)
+import transformers
+from transformers import BertForTokenClassification
+from transformers import BertTokenizer
+from transformers import XLMForTokenClassification
+from transformers import XLMTokenizer
+from transformers import XLMRobertaForTokenClassification
+from transformers import XLMRobertaTokenizer
+from transformers import AdamW
+from transformers import get_linear_schedule_with_warmup
+from transformers import AutoTokenizer
+from transformers import AutoModelForMaskedLM
 from seqeval.metrics import precision_score, recall_score, f1_score, accuracy_score
 
 
 logger = logging.getLogger(__name__)
 
+#Define Focal Loss
+class FocalLoss(nn.Module):
+    '''Multi-class Focal loss implementation'''
+    def __init__(self, gamma=2, weight=None,ignore_index=-100):
+        super(FocalLoss, self).__init__()
+        self.gamma = gamma
+        self.weight = weight
+        self.ignore_index=ignore_index
+
+    def forward(self, input, target):
+        """
+        input: [N, C]
+        target: [N, ]
+        """
+        logpt = F.log_softmax(input, dim=1)
+        pt = torch.exp(logpt)
+        logpt = (1-pt)**self.gamma * logpt
+        loss = F.nll_loss(logpt, target, self.weight,ignore_index=self.ignore_index)
+        return loss
 
 def set_seed(args):
     random.seed(args.seed)
@@ -99,7 +127,6 @@ def get_labels(data_dir):
 
 
 def train(args, train_dataset, valid_dataset, model, tokenizer, labels):
-
     # Prepare train data
     train_sampler = RandomSampler(train_dataset)
     train_dataloader = DataLoader(
@@ -109,21 +136,23 @@ def train(args, train_dataset, valid_dataset, model, tokenizer, labels):
     t_total = len(train_dataloader) * args.num_train_epochs
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [
-        {"params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
-         "weight_decay": args.weight_decay},
-        {"params": [p for n, p in model.named_parameters() if any(
-            nd in n for nd in no_decay)], "weight_decay": 0.0}
+        {
+            "params": [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay)],
+            "weight_decay": args.weight_decay,
+        },
+        {
+            "params": [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay)],
+            "weight_decay": 0.0,
+        },
     ]
-    optimizer = AdamW(optimizer_grouped_parameters,
-                      lr=args.learning_rate, eps=args.adam_epsilon)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=t_total // 10, num_training_steps=t_total)
 
     # Training
     logger.info("***** Running training *****")
     logger.info("  Num examples = %d", len(train_dataset))
     logger.info("  Num Epochs = %d", args.num_train_epochs)
-    logger.info("  Instantaneous batch size per GPU = %d",
-                args.train_batch_size)
+    logger.info("  Instantaneous batch size per GPU = %d", args.train_batch_size)
 
     global_step = 0
     tr_loss, logging_loss = 0.0, 0.0
@@ -133,36 +162,52 @@ def train(args, train_dataset, valid_dataset, model, tokenizer, labels):
     best_f1_score = 0
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
-    for _ in train_iterator:
-        epoch_iterator = tqdm(train_dataloader, desc="Iteration")
-        for step, batch in enumerate(epoch_iterator):
-            model.train()
-            batch = tuple(t.to(args.device) for t in batch)
-            inputs = {"input_ids": batch[0],
-                      'attention_mask': batch[1],
-                      "labels": batch[2]}
-            outputs = model(**inputs, return_dict=False)
-            loss = outputs[0]
 
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(), args.max_grad_norm)
+    # Calculate the number of parameters per layer
+    num_params_total = sum(p.numel() for n, p in model.named_parameters())
+    num_layers = model.config.num_hidden_layers
+    num_params_per_layer = num_params_total // num_layers
 
-            tr_loss += loss.item()
-            optimizer.step()
-            scheduler.step()
-            model.zero_grad()
-            global_step += 1
+    # Gradual unfreezing loop
+    for layer in range(args.num_layers):
+        # Unfreeze the current layer and freeze all previous layers
+        for i, param in enumerate(model.parameters()):
+            if i < layer * num_params_per_layer:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
 
-        # Checking for validation accuracy and stopping after drop in accuracy for 3 epochs
-        results = evaluate(args, model, tokenizer, labels, 'validation')
-        if results.get('f1') > best_f1_score and args.save_steps > 0:
-            best_f1_score = results.get('f1')
+        for _ in train_iterator:
+            epoch_iterator = tqdm(train_dataloader, desc="Iteration")
+            for step, batch in enumerate(epoch_iterator):
+                model.train()
+                batch = tuple(t.to(args.device) for t in batch)
+                inputs = {
+                    "input_ids": batch[0],
+                    "attention_mask": batch[1],
+                    "labels": batch[2],
+                }
+                outputs = model(**inputs, return_dict=False)
+                loss = outputs[0]
+
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+
+                tr_loss += loss.item()
+                optimizer.step()
+                scheduler.step()
+                model.zero_grad()
+                global_step += 1
+
+        # Check validation performance and save the best model
+        results = evaluate(args, model, tokenizer, labels, "validation")
+        if results.get("f1") > best_f1_score and args.save_steps > 0:
+            best_f1_score = results.get("f1")
+            logger.info("Saving model checkpoint to %s", args.output_dir)
             model_to_save = model.module if hasattr(model, "module") else model
             model_to_save.save_pretrained(args.output_dir)
             tokenizer.save_pretrained(args.output_dir)
-            torch.save(args, os.path.join(
-                args.output_dir, "training_args.bin"))
+            torch.save(args, os.path.join(args.output_dir, "training_args.bin"))
 
     return global_step, tr_loss / global_step
 
@@ -323,6 +368,8 @@ def main():
                         type=str, help='name of pretrained model/path to checkpoint')
     parser.add_argument("--save_steps", type=int, default=1, help='set to -1 to not save model')
     parser.add_argument("--max_seq_length", default=128, type=int, help="max seq length after tokenization")
+    parser.add_argument("--num_layers", default=1, type=int,
+                        help="Number of layers to unfreeze at a time during fine-tuning.")
 
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
@@ -344,11 +391,21 @@ def main():
     if args.model_type not in tokenizer_class.keys():
         print("Model type has to be xlm/xlm-roberta/bert")
         exit(0)
-    tokenizer = tokenizer_class[args.model_type].from_pretrained(
-        args.model_name, do_lower_case=True)
-    model_class = {"xlm": XLMForTokenClassification, "bert": BertForTokenClassification, "xlm-roberta": XLMRobertaForTokenClassification}
-    model = model_class[args.model_type].from_pretrained(
-        args.model_name, num_labels=num_labels)
+    
+    if args.model_name == "l3cube-pune/hing-roberta-mixed":
+        tokenizer = AutoTokenizer.from_pretrained("l3cube-pune/hing-roberta-mixed")
+        model = AutoModelForMaskedLM.from_pretrained("l3cube-pune/hing-roberta-mixed")
+    
+    elif args.model_name == "l3cube-pune/hing-roberta" :
+        tokenizer = AutoTokenizer.from_pretrained("l3cube-pune/hing-roberta")
+        model = AutoModelForMaskedLM.from_pretrained("l3cube-pune/hing-roberta")
+    
+    else:
+        tokenizer = tokenizer_class[args.model_type].from_pretrained(
+            args.model_name, do_lower_case=True)
+        model_class = {"xlm": XLMForTokenClassification, "bert": BertForTokenClassification, "xlm-roberta": XLMRobertaForTokenClassification}
+        model = model_class[args.model_type].from_pretrained(
+            args.model_name, num_labels=num_labels)
 
     model.to(args.device)
 
